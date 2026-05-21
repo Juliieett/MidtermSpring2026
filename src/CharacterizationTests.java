@@ -155,6 +155,8 @@ public class CharacterizationTests {
         players.add(new Player("A", false));
         players.add(new Player("B", false));
         players.add(new Player("C", false));
-        return new GameRunner(players, new Random(1), new Scanner(System.in), true);
+        ConsoleView view = new ConsoleView(true);
+        ConsoleInput input = new ConsoleInput(new Scanner(System.in), view);
+        return new GameRunner(players, new Random(1), input, view);
     }
 }

@@ -149,9 +149,9 @@ Still left: `GameRunner.playGame()` still coordinates several responsibilities, 
 
 Found: `System.out`, `Scanner`, move validation, and rule execution were mixed together.
 
-Changed: human command parsing was extracted to `HumanMoveParser`, and rule logic no longer depends on console input/output.
+Changed: human command parsing was extracted to `HumanMoveParser`, scanner-based prompts were moved to `ConsoleInput`, and printing was moved to `ConsoleView`. Rule logic no longer depends on console input/output.
 
-Still left: `askHuman()`, `askColor()`, and gameplay output are still inside `GameRunner`. A future `ConsoleView` or `ConsoleInput` class would improve this further.
+Still left: `GameRunner` still decides when input/output events happen, but it no longer owns the direct console calls.
 
 ### Duplicated Legality Checks
 
@@ -195,11 +195,11 @@ Still left: turn orchestration still indexes into `players` by `currentPlayer`, 
 
 ### Parsing Mixed With Validation
 
-Found: `askHuman()` parsed commands, checked card existence, checked legality, and printed messages.
+Found: human input code parsed commands, checked card existence, checked legality, read from `Scanner`, and printed messages.
 
-Changed: raw command parsing moved to `HumanMoveParser`.
+Changed: raw command parsing moved to `HumanMoveParser`, and scanner/prompt behavior moved to `ConsoleInput`.
 
-Still left: `askHuman()` still validates legality and prints messages. This is partially improved, not fully separated.
+Still left: `ConsoleInput` still validates card-code legality before returning a selected card. This preserves the original behavior where illegal card-code input is rejected immediately.
 
 ### Scoring Mixed With Game Completion
 
@@ -225,7 +225,7 @@ I also checked the work against `docs/refactoring-guide.md`.
 2. Run the characterization checks: done. The original self-test path still works.
 3. Add checks around behavior before changing it: done. The self-test grew from 9 checks to 39 checks before and during the refactoring.
 4. Extract small methods from the game loop: done. `applyCardEffect()` and `drawCardsForCurrentPlayer()` were extracted, deck creation moved to `DeckFactory`, and the loop itself moved to `GameRunner`.
-5. Separate user input parsing from move validation: partially done. `HumanMoveParser` now parses commands, while `askHuman()` still owns prompting and legality validation.
+5. Separate user input parsing from move validation: done for console ownership. `HumanMoveParser` parses commands, `ConsoleInput` owns scanner prompts, and `GameRunner` no longer reads from `Scanner` directly.
 6. Centralize legal-play rules: done. `CardRules.isLegal()` is the shared legal-play rule.
 7. Isolate card effects: partially done. Effects are isolated in `applyCardEffect()`, but not yet in separate effect classes.
 8. Add one extension: not implemented, because the midterm brief says the extension does not need to be implemented. Instead, `docs/extension-readiness.md` explains the prepared extension point for a smarter bot strategy.
@@ -233,8 +233,8 @@ I also checked the work against `docs/refactoring-guide.md`.
 Useful refactorings applied from the guide:
 
 - Extract Method: `applyCardEffect()`, `drawCardsForCurrentPlayer()`, and existing wrappers around extracted logic.
-- Extract Class: `CardRules`, `ScoreCalculator`, `BotStrategy`, `HumanMoveParser`, `DeckFactory`, `Player`, `CharacterizationTests`, and `GameRunner`.
-- Move Method: card rules, scoring, bot selection, deck creation, game running, self-tests, and parsing behavior were moved out of `Main`.
+- Extract Class: `CardRules`, `ScoreCalculator`, `BotStrategy`, `HumanMoveParser`, `DeckFactory`, `Player`, `CharacterizationTests`, `GameRunner`, `ConsoleInput`, and `ConsoleView`.
+- Move Method: card rules, scoring, bot selection, deck creation, game running, self-tests, parsing behavior, scanner prompts, and console rendering were moved out of `Main` or `GameRunner`.
 - Split Phase: human input parsing is now separated from validation.
 - Introduce Parameter Object: lightly applied through `HumanMove`, which represents parsed human input.
 
@@ -323,7 +323,7 @@ I created `HumanMoveParser.java` and a small `HumanMove` data object. This parse
 - card code input
 - unknown input
 
-The `askHuman()` method still owns console prompting and legality validation, but parsing is now separated.
+`ConsoleInput` now uses this parser when asking a human for a move.
 
 Why this improves the design: parsing can be tested without using `Scanner` or requiring interactive input. This moves the code toward the requested MVC-like separation.
 
@@ -369,6 +369,35 @@ I moved the game loop and mutable in-game state out of `Main` and into `GameRunn
 - win detection and score update
 
 Why this improves the design: `Main` is now mostly responsible for command-line setup and final score printing, while `GameRunner` owns the actual game execution.
+
+### 13. Extracted Console Output Into `ConsoleView`
+
+I moved game output out of `GameRunner` and into `ConsoleView`.
+
+`ConsoleView` now owns:
+
+- game number display
+- turn display
+- draw/play/call messages
+- UNO and win messages
+- draw two and draw four messages
+- safety-limit message
+- final score printing
+- human prompt text
+
+Why this improves the design: replacing the CLI output with another view or replay log would no longer require editing the core game loop as heavily.
+
+### 14. Extracted Console Input Into `ConsoleInput`
+
+I moved direct `Scanner` usage out of `GameRunner` and into `ConsoleInput`.
+
+`ConsoleInput` now owns:
+
+- asking for a human move
+- asking whether to play a drawn card
+- asking for a wild color
+
+Why this improves the design: `GameRunner` no longer calls `scanner.nextLine()` directly, which creates a cleaner boundary between turn orchestration and console input.
 
 ## Files Changed
 
@@ -447,6 +476,25 @@ New class for game execution:
 - runs turns
 - applies card effects
 - updates scores when a player wins
+
+### `src\ConsoleView.java`
+
+New class for console output:
+
+- prints game state and events
+- handles quiet-mode suppression
+- prints final scores
+- provides prompt text for human input
+
+### `src\ConsoleInput.java`
+
+New class for console input:
+
+- owns `Scanner`
+- asks for human moves
+- asks whether to play a drawn card
+- asks for wild color
+- uses `HumanMoveParser`
 
 ### `docs/refactoring-report.md`
 
@@ -590,7 +638,7 @@ These results show that the required midterm behaviors are covered: matching by 
 
 `GameRunner` now owns most match state, which is better than keeping it in `Main`, but it still combines state and orchestration in one class. Larger features could benefit from a separate `GameState` object.
 
-The main game loop is improved but still handles several responsibilities: dealing, printing, asking for moves, applying moves, checking wins, and advancing turns. A future refactor could split console rendering/input from `GameRunner`.
+The main game loop is improved but still handles several responsibilities: dealing, deciding when to ask for moves, applying moves, checking wins, and advancing turns. Console rendering and scanner input are now outside `GameRunner`, but a future refactor could split turn orchestration further.
 
 The tests are still custom self-tests instead of JUnit tests. This avoids adding dependencies, but a real test framework would give clearer test names and better failure reporting.
 

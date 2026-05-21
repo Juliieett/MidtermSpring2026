@@ -34,24 +34,21 @@ public class Main {
 
         Random random = new Random(seed);
         ArrayList<Player> players = setupPlayers(bots, human);
+        ConsoleView view = new ConsoleView(quiet);
+        ConsoleInput input = new ConsoleInput(scanner, view);
 
         if (players.size() < 2 || players.size() > 4) {
             System.out.println("UNO needs 2 to 4 players.");
             return;
         }
 
-        GameRunner gameRunner = new GameRunner(players, random, scanner, quiet);
+        GameRunner gameRunner = new GameRunner(players, random, input, view);
         for (int g = 1; g <= games; g++) {
-            if (!quiet) {
-                System.out.println("\n=== Game " + g + " ===");
-            }
+            view.showGameNumber(g);
             gameRunner.playGame();
         }
 
-        System.out.println("\nFinal scores:");
-        for (int i = 0; i < players.size(); i++) {
-            System.out.println(players.get(i).name + ": " + players.get(i).score);
-        }
+        view.showFinalScores(players);
     }
 
     static ArrayList<Player> setupPlayers(int bots, boolean human) {

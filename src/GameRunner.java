@@ -1,13 +1,12 @@
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
-import java.util.Scanner;
 
 public class GameRunner {
     final ArrayList<Player> players;
     final Random random;
-    final Scanner scanner;
-    final boolean quiet;
+    final ConsoleInput input;
+    final ConsoleView view;
     final ArrayList<String> deck;
     final ArrayList<String> discard;
     int currentPlayer;
@@ -15,11 +14,11 @@ public class GameRunner {
     String upCard;
     String calledColor;
 
-    GameRunner(ArrayList<Player> players, Random random, Scanner scanner, boolean quiet) {
+    GameRunner(ArrayList<Player> players, Random random, ConsoleInput input, ConsoleView view) {
         this.players = players;
         this.random = random;
-        this.scanner = scanner;
-        this.quiet = quiet;
+        this.input = input;
+        this.view = view;
         this.deck = new ArrayList<String>();
         this.discard = new ArrayList<String>();
         this.currentPlayer = 0;
@@ -56,14 +55,11 @@ public class GameRunner {
             String name = player.name;
             ArrayList<String> hand = player.hand;
 
-            if (!quiet) {
-                System.out.println("\nUp card: " + upCard + (calledColor.equals("") ? "" : " called " + calledColor));
-                System.out.println(name + " hand: " + join(hand));
-            }
+            view.showTurn(upCard, calledColor, player);
 
             int chosen = -1;
             if (player.human) {
-                chosen = askHuman(hand);
+                chosen = input.askHumanMove(hand, upCard, calledColor);
             } else {
                 chosen = chooseBotCard(hand);
             }
@@ -71,16 +67,12 @@ public class GameRunner {
             if (chosen == -1) {
                 String drawn = draw();
                 hand.add(drawn);
-                if (!quiet) {
-                    System.out.println(name + " draws " + drawn);
-                }
+                view.showDraw(name, drawn);
                 if (CardRules.isLegal(drawn, upCard, calledColor)) {
                     if (!player.human) {
                         chosen = hand.size() - 1;
                     } else {
-                        System.out.print("Play drawn card " + drawn + "? y/n: ");
-                        String answer = scanner.nextLine();
-                        if (answer.equalsIgnoreCase("y") || answer.equalsIgnoreCase("yes")) {
+                        if (input.shouldPlayDrawnCard(drawn)) {
                             chosen = hand.size() - 1;
                         }
                     }
@@ -89,9 +81,7 @@ public class GameRunner {
 
             if (chosen >= 0) {
                 if (chosen >= hand.size()) {
-                    if (!quiet) {
-                        System.out.println(name + " selected an invalid index and draws a penalty card.");
-                    }
+                    view.showInvalidIndexPenalty(name);
                     hand.add(draw());
                     next();
                     continue;
@@ -101,9 +91,7 @@ public class GameRunner {
                 boolean ok = CardRules.isLegal(card, upCard, calledColor);
 
                 if (!ok) {
-                    if (!quiet) {
-                        System.out.println(name + " tried illegal card " + card + " and draws a penalty card.");
-                    }
+                    view.showIllegalCardPenalty(name, card);
                     hand.add(draw());
                     next();
                     continue;
@@ -113,31 +101,25 @@ public class GameRunner {
                 discard.add(upCard);
                 upCard = card;
                 calledColor = "";
-                if (!quiet) {
-                    System.out.println(name + " plays " + card);
-                }
+                view.showPlay(name, card);
 
                 if (card.equals("W") || card.equals("W4")) {
                     if (player.human) {
-                        calledColor = askColor();
+                        calledColor = input.askColor();
                     } else {
                         calledColor = chooseBotColor(hand);
                     }
-                    if (!quiet) {
-                        System.out.println(name + " calls " + calledColor);
-                    }
+                    view.showColorCall(name, calledColor);
                 }
 
-                if (hand.size() == 1 && !quiet) {
-                    System.out.println(name + " says UNO!");
+                if (hand.size() == 1) {
+                    view.showUno(name);
                 }
 
                 if (hand.size() == 0) {
                     int points = ScoreCalculator.scoreRemainingPlayers(players, currentPlayer);
                     player.score += points;
-                    if (!quiet) {
-                        System.out.println(name + " wins and scores " + points);
-                    }
+                    view.showWin(name, points);
                     return;
                 }
 
@@ -146,9 +128,7 @@ public class GameRunner {
                 next();
             }
         }
-        if (!quiet) {
-            System.out.println("Game stopped at safety limit.");
-        }
+        view.showSafetyLimit();
     }
 
     void applyCardEffect(String card) {
@@ -166,16 +146,12 @@ public class GameRunner {
         } else if (CardRules.rank(card).equals("DRAW_TWO")) {
             next();
             drawCardsForCurrentPlayer(2);
-            if (!quiet) {
-                System.out.println(players.get(currentPlayer).name + " draws two.");
-            }
+            view.showDrawCards(players.get(currentPlayer).name, 2);
             next();
         } else if (CardRules.rank(card).equals("WILD_DRAW_FOUR")) {
             next();
             drawCardsForCurrentPlayer(4);
-            if (!quiet) {
-                System.out.println(players.get(currentPlayer).name + " draws four.");
-            }
+            view.showDrawCards(players.get(currentPlayer).name, 4);
             next();
         } else {
             next();
@@ -204,47 +180,6 @@ public class GameRunner {
         return BotStrategy.chooseCard(hand, upCard, calledColor);
     }
 
-    int askHuman(ArrayList<String> hand) {
-        while (true) {
-            System.out.print("Choose card index/code or draw: ");
-            HumanMove move = HumanMoveParser.parse(scanner.nextLine(), hand);
-            if (move.type.equals(HumanMove.DRAW)) {
-                return -1;
-            }
-            if (move.type.equals(HumanMove.INDEX)) {
-                return move.index;
-            }
-            if (move.type.equals(HumanMove.CARD_CODE)) {
-                if (CardRules.isLegal(hand.get(move.index), upCard, calledColor)) {
-                    return move.index;
-                }
-                System.out.println("That card is not legal.");
-            } else {
-                System.out.println("Card not found.");
-            }
-        }
-    }
-
-    String askColor() {
-        while (true) {
-            System.out.print("Call color R/Y/G/B: ");
-            String input = scanner.nextLine().trim().toUpperCase();
-            if (input.equals("R")) {
-                return "R";
-            }
-            if (input.equals("Y")) {
-                return "Y";
-            }
-            if (input.equals("G")) {
-                return "G";
-            }
-            if (input.equals("B")) {
-                return "B";
-            }
-            System.out.println("Bad color.");
-        }
-    }
-
     String chooseBotColor(ArrayList<String> hand) {
         return BotStrategy.chooseColor(hand);
     }
@@ -259,14 +194,4 @@ public class GameRunner {
         }
     }
 
-    String join(ArrayList<String> cards) {
-        String out = "";
-        for (int i = 0; i < cards.size(); i++) {
-            out += i + ":" + cards.get(i);
-            if (i < cards.size() - 1) {
-                out += " ";
-            }
-        }
-        return out;
-    }
 }
