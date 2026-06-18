@@ -14,10 +14,12 @@ For example, a future strategy could prefer winning moves, avoid wasting wild ca
 
 Bot decisions can now reuse `CardRules.isLegal` instead of copying rule conditions. Scoring is available through `ScoreCalculator`, so a smarter bot could estimate the value of cards left in its hand. Player data is grouped in `Player`, so hand and score data are no longer spread across parallel lists. `GameRunner` can ask the strategy for a move without knowing how that move was chosen.
 
-This makes the bot strategy easier to replace or improve without changing legal-play rules, scoring rules, or console input handling. Console behavior is now separated into `ConsoleInput` and `ConsoleView`, so improving the UI or adding a replay-style output is also more realistic.
+Match state now lives in `GameState`, so a smarter bot could receive direction, up card, called color, and player information through a narrower state object instead of reaching into the full turn loop. Drawing and card effects are also separated into `DrawPile` and `CardEffectEngine`, which makes it easier to change bot behavior without touching deck logic or action-card handling.
+
+Console behavior is separated into `ConsoleInput` and `ConsoleView`, so improving the UI or adding a replay-style output is also more realistic.
 
 ## What Is Still Difficult
 
-The main game state now lives mostly in `GameRunner`. A more advanced bot may need richer information about the whole game, such as all players, direction, discard history, or previous moves. Passing that information cleanly would be easier if the remaining runner state were extracted into a dedicated game-state object.
+`GameRunner` still coordinates the turn loop and decides when game events happen. A replay log or GUI would be easier now because console printing is isolated in `ConsoleView`, but a fuller event system would make those extensions cleaner.
 
-The turn loop still owns win detection and decides when game events happen. A replay log or GUI would be easier now because console printing is isolated in `ConsoleView`, but a fuller event system would make those extensions cleaner.
+Turn orchestration is thinner than before, but win detection and move resolution still live inside `GameRunner`. A future refactor could move those responsibilities behind a dedicated turn coordinator while keeping `GameState`, `DrawPile`, and `CardEffectEngine` as the runtime building blocks.
