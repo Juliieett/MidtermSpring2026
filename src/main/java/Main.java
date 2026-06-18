@@ -1,9 +1,21 @@
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.logging.LogManager;
 
 public class Main {
     static Scanner scanner = new Scanner(System.in);
+
+    static {
+        try (InputStream in = Main.class.getResourceAsStream("/logging.properties")) {
+            if (in != null) {
+                LogManager.getLogManager().readConfiguration(in);
+            }
+        } catch (IOException ignored) {
+        }
+    }
 
     public static void main(String[] args) {
         int bots = 3;
@@ -27,7 +39,7 @@ public class Main {
                 selfTest();
                 return;
             } else if (args[i].equals("--help")) {
-                System.out.println("Usage: scripts/run.sh [--bots N] [--games N] [--human] [--quiet] [--seed N]");
+                System.out.println("Usage: java -jar uno-cli.jar [--bots N] [--games N] [--human] [--quiet] [--seed N] [--self-test]");
                 return;
             }
         }
@@ -42,6 +54,7 @@ public class Main {
             return;
         }
 
+        GameLogger.sessionStart(players.size(), games, seed);
         GameRunner gameRunner = new GameRunner(players, random, input, view);
         for (int g = 1; g <= games; g++) {
             view.showGameNumber(g);
@@ -49,6 +62,7 @@ public class Main {
         }
 
         view.showFinalScores(players);
+        GameLogger.sessionEnd();
     }
 
     static ArrayList<Player> setupPlayers(int bots, boolean human) {
