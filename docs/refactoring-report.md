@@ -20,7 +20,7 @@ The tests cover:
 - turn and action effects, including clockwise movement, counterclockwise wrapping, skip, reverse, draw two, and wild draw four
 - human input parsing for `draw`, numeric index commands, card-code commands, and unknown input
 
-These checks made it safer to extract scoring into `ScoreCalculator`, legal rules into `CardRules`, bot choices into `BotStrategy`, action effects into `GameRunner`, and command parsing into `HumanMoveParser`.
+These checks made it safer to extract scoring into `ScoreCalculator`, legal rules into `CardRules`, bot choices into `BotStrategy`, match state into `GameState`, drawing into `DrawPile`, action effects into `CardEffectEngine`, and command parsing into `HumanMoveParser`. Turn, draw-pile, and effect tests now call those extracted pieces directly instead of going only through `GameRunner`.
 
 ## Worst Design Problems Found
 
@@ -52,11 +52,14 @@ I extracted small responsibilities from the original procedural design:
 - `DeckFactory` now builds and shuffles the simplified UNO deck using the existing seeded `Random`.
 - `Player` now groups name, human/bot flag, hand, and score instead of using parallel collections.
 - `CharacterizationTests` now owns the self-test suite instead of keeping it in `Main`.
-- `GameRunner` now owns per-game state, dealing, turn execution, drawing, card effects, win detection, and score updates.
+- `GameState` now owns mutable match state: deck, discard, current player, direction, up card, and called color.
+- `DrawPile` now owns drawing and discard-pile reshuffling.
+- `CardEffectEngine` now owns skip, reverse, draw two, and wild draw four turn effects.
+- `GameRunner` now coordinates setup, turn orchestration, win detection, and score updates without owning all runtime state directly.
 - `ConsoleView` now owns console output, quiet-mode suppression, event messages, prompts, and final score printing.
 - `ConsoleInput` now owns `Scanner` usage and asks for human moves, drawn-card choices, and wild colors.
 
-I also extracted action-card behavior into `GameRunner.applyCardEffect()` and drawing logic into `GameRunner.drawCardsForCurrentPlayer()`. `Main` now mostly handles command-line options, player setup, game creation, running games, final scores, and delegating self-tests.
+I also moved action-card behavior into `CardEffectEngine` and drawing logic into `DrawPile`. `Main` now mostly handles command-line options, player setup, game creation, running games, final scores, and delegating self-tests.
 
 Compatibility wrappers such as `isLegal()`, `color()`, `rank()`, `number()`, and `points()` were kept in `Main` while delegating to extracted classes. This kept the refactoring incremental and reduced the risk of breaking call sites.
 
@@ -76,8 +79,8 @@ Most expected smells were improved:
 Some limitations remain intentionally:
 
 - Cards are still represented as strings like `R5`, `GS`, `G+2`, `W`, and `W4` to preserve CLI compatibility.
-- `GameRunner` still owns mutable match state and turn orchestration.
-- `applyCardEffect()` still uses conditionals instead of polymorphic card effects because the project is small and behavior preservation was more important than adding a larger hierarchy.
+- `GameRunner` still coordinates turn orchestration even though match state and effects now live in smaller objects.
+- `CardEffectEngine.apply()` still uses conditionals instead of polymorphic card effects because the project is small and behavior preservation was more important than adding a larger hierarchy.
 - `ConsoleInput` still validates card-code legality before returning a selected card to preserve the original behavior.
 
 ## Refactoring Guide Checklist
@@ -90,7 +93,7 @@ I followed the suggested refactoring path:
 4. Extracted methods such as `applyCardEffect()` and `drawCardsForCurrentPlayer()`.
 5. Separated command parsing into `HumanMoveParser` and console prompting into `ConsoleInput`.
 6. Centralized legal-play rules in `CardRules.isLegal()`.
-7. Isolated card effects in `GameRunner.applyCardEffect()`.
+7. Isolated card effects in `CardEffectEngine`.
 8. Did not implement a new extension because the midterm brief says the extension does not need to be implemented. `docs/extension-readiness.md` instead explains the prepared smarter-bot extension point.
 
 The main refactorings used were Extract Method, Extract Class, Move Method, Split Phase, and a light Introduce Parameter Object through `HumanMove`. Replace Conditional with Polymorphism was not used because the current action-card conditional is small enough for this project.
@@ -105,7 +108,10 @@ The main refactorings used were Extract Method, Extract Class, Move Method, Spli
 - `src/DeckFactory.java`: deck creation and shuffling
 - `src/Player.java`: player name, human/bot flag, hand, and score
 - `src/CharacterizationTests.java`: 39 characterization checks
-- `src/GameRunner.java`: per-game state, turn loop, drawing, card effects, win detection, and score updates
+- `src/GameState.java`: mutable match state and turn movement
+- `src/DrawPile.java`: deck drawing and discard reshuffling
+- `src/CardEffectEngine.java`: skip, reverse, draw two, and wild draw four effects
+- `src/GameRunner.java`: turn orchestration, win detection, and score updates
 - `src/ConsoleView.java`: console output and quiet-mode behavior
 - `src/ConsoleInput.java`: scanner-based input prompts
 - `docs/refactoring-report.md`: this report
@@ -160,9 +166,7 @@ The 39 characterization checks cover: `color R5`, `rank +2`, `rank skip`, `rank 
 
 ## Remaining Risks
 
-`GameRunner` now owns most match state, which is better than keeping it in `Main`, but it still combines state and orchestration in one class. A future `GameState` object could make larger features easier.
-
-The main loop is improved but still coordinates dealing, asking for moves, applying moves, checking wins, and advancing turns. Console rendering and scanner input are now outside `GameRunner`, but turn orchestration could be split further later.
+`GameRunner` now coordinates components instead of owning all match state directly, but it still handles dealing, asking for moves, applying moves, checking wins, and advancing turns in one loop. Console rendering and scanner input are outside `GameRunner`, and state, drawing, and effects are extracted, but turn orchestration could be split further later.
 
 The tests are still custom self-tests instead of JUnit tests. This avoids adding dependencies, but a real test framework would provide clearer test names and better failure reporting.
 

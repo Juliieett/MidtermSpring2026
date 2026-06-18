@@ -1,74 +1,65 @@
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Random;
 
 public class GameRunner {
-    final ArrayList<Player> players;
+    final GameState state;
+    final DrawPile pile;
+    final CardEffectEngine effects;
     final Random random;
     final ConsoleInput input;
     final ConsoleView view;
-    final ArrayList<String> deck;
-    final ArrayList<String> discard;
-    int currentPlayer;
-    int direction;
-    String upCard;
-    String calledColor;
 
     GameRunner(ArrayList<Player> players, Random random, ConsoleInput input, ConsoleView view) {
-        this.players = players;
+        this.state = new GameState(players);
         this.random = random;
+        this.pile = new DrawPile(state.deck, state.discard, random);
+        this.effects = new CardEffectEngine();
         this.input = input;
         this.view = view;
-        this.deck = new ArrayList<String>();
-        this.discard = new ArrayList<String>();
-        this.currentPlayer = 0;
-        this.direction = 1;
-        this.upCard = "";
-        this.calledColor = "";
     }
 
     void playGame() {
-        deck.clear();
-        deck.addAll(DeckFactory.createShuffledDeck(random));
-        discard.clear();
-        for (int i = 0; i < players.size(); i++) {
-            players.get(i).hand.clear();
+        state.deck.clear();
+        state.deck.addAll(DeckFactory.createShuffledDeck(random));
+        state.discard.clear();
+        for (int i = 0; i < state.players.size(); i++) {
+            state.players.get(i).hand.clear();
         }
-        for (int i = 0; i < players.size(); i++) {
+        for (int i = 0; i < state.players.size(); i++) {
             for (int j = 0; j < 7; j++) {
-                players.get(i).hand.add(draw());
+                state.players.get(i).hand.add(pile.draw());
             }
         }
-        upCard = draw();
-        while (upCard.startsWith("W")) {
-            discard.add(upCard);
-            upCard = draw();
+        state.upCard = pile.draw();
+        while (state.upCard.startsWith("W")) {
+            state.discard.add(state.upCard);
+            state.upCard = pile.draw();
         }
-        calledColor = "";
-        direction = 1;
-        currentPlayer = random.nextInt(players.size());
+        state.calledColor = "";
+        state.direction = 1;
+        state.currentPlayer = random.nextInt(state.players.size());
 
         int guard = 0;
         while (guard < 3000) {
             guard++;
-            Player player = players.get(currentPlayer);
+            Player player = state.current();
             String name = player.name;
             ArrayList<String> hand = player.hand;
 
-            view.showTurn(upCard, calledColor, player);
+            view.showTurn(state.upCard, state.calledColor, player);
 
             int chosen = -1;
             if (player.human) {
-                chosen = input.askHumanMove(hand, upCard, calledColor);
+                chosen = input.askHumanMove(hand, state.upCard, state.calledColor);
             } else {
                 chosen = chooseBotCard(hand);
             }
 
             if (chosen == -1) {
-                String drawn = draw();
+                String drawn = pile.draw();
                 hand.add(drawn);
                 view.showDraw(name, drawn);
-                if (CardRules.isLegal(drawn, upCard, calledColor)) {
+                if (CardRules.isLegal(drawn, state.upCard, state.calledColor)) {
                     if (!player.human) {
                         chosen = hand.size() - 1;
                     } else {
@@ -82,34 +73,34 @@ public class GameRunner {
             if (chosen >= 0) {
                 if (chosen >= hand.size()) {
                     view.showInvalidIndexPenalty(name);
-                    hand.add(draw());
-                    next();
+                    hand.add(pile.draw());
+                    state.next();
                     continue;
                 }
 
                 String card = hand.get(chosen);
-                boolean ok = CardRules.isLegal(card, upCard, calledColor);
+                boolean ok = CardRules.isLegal(card, state.upCard, state.calledColor);
 
                 if (!ok) {
                     view.showIllegalCardPenalty(name, card);
-                    hand.add(draw());
-                    next();
+                    hand.add(pile.draw());
+                    state.next();
                     continue;
                 }
 
                 hand.remove(chosen);
-                discard.add(upCard);
-                upCard = card;
-                calledColor = "";
+                state.discard.add(state.upCard);
+                state.upCard = card;
+                state.calledColor = "";
                 view.showPlay(name, card);
 
                 if (card.equals("W") || card.equals("W4")) {
                     if (player.human) {
-                        calledColor = input.askColor();
+                        state.calledColor = input.askColor();
                     } else {
-                        calledColor = chooseBotColor(hand);
+                        state.calledColor = chooseBotColor(hand);
                     }
-                    view.showColorCall(name, calledColor);
+                    view.showColorCall(name, state.calledColor);
                 }
 
                 if (hand.size() == 1) {
@@ -117,81 +108,25 @@ public class GameRunner {
                 }
 
                 if (hand.size() == 0) {
-                    int points = ScoreCalculator.scoreRemainingPlayers(players, currentPlayer);
+                    int points = ScoreCalculator.scoreRemainingPlayers(state.players, state.currentPlayer);
                     player.score += points;
                     view.showWin(name, points);
                     return;
                 }
 
-                applyCardEffect(card);
+                effects.apply(card, state, pile, view);
             } else {
-                next();
+                state.next();
             }
         }
         view.showSafetyLimit();
     }
 
-    void applyCardEffect(String card) {
-        if (CardRules.rank(card).equals("SKIP")) {
-            next();
-            next();
-        } else if (CardRules.rank(card).equals("REVERSE")) {
-            direction = direction * -1;
-            if (players.size() == 2) {
-                next();
-                next();
-            } else {
-                next();
-            }
-        } else if (CardRules.rank(card).equals("DRAW_TWO")) {
-            next();
-            drawCardsForCurrentPlayer(2);
-            view.showDrawCards(players.get(currentPlayer).name, 2);
-            next();
-        } else if (CardRules.rank(card).equals("WILD_DRAW_FOUR")) {
-            next();
-            drawCardsForCurrentPlayer(4);
-            view.showDrawCards(players.get(currentPlayer).name, 4);
-            next();
-        } else {
-            next();
-        }
-    }
-
-    void drawCardsForCurrentPlayer(int count) {
-        for (int i = 0; i < count; i++) {
-            players.get(currentPlayer).hand.add(draw());
-        }
-    }
-
-    String draw() {
-        if (deck.size() == 0) {
-            deck.addAll(discard);
-            discard.clear();
-            Collections.shuffle(deck, random);
-        }
-        if (deck.size() == 0) {
-            return "W";
-        }
-        return deck.remove(0);
-    }
-
     int chooseBotCard(ArrayList<String> hand) {
-        return BotStrategy.chooseCard(hand, upCard, calledColor);
+        return BotStrategy.chooseCard(hand, state.upCard, state.calledColor);
     }
 
     String chooseBotColor(ArrayList<String> hand) {
         return BotStrategy.chooseColor(hand);
     }
-
-    void next() {
-        currentPlayer += direction;
-        if (currentPlayer >= players.size()) {
-            currentPlayer = 0;
-        }
-        if (currentPlayer < 0) {
-            currentPlayer = players.size() - 1;
-        }
-    }
-
 }

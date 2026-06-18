@@ -40,28 +40,28 @@ public class CharacterizationTests {
         passed += check(CardRules.isLegal("B3", "W", "B"), "called color");
         passed += check(!CardRules.isLegal("B3", "R9", ""), "illegal mismatch");
 
+        GameRunner runner = newRunner();
+        runner.state.upCard = "R9";
+        runner.state.calledColor = "";
         ArrayList<String> h = new ArrayList<String>();
         h.add("B3");
         h.add("R4");
         h.add("W");
-        GameRunner runner = newRunner();
-        runner.upCard = "R9";
-        runner.calledColor = "";
         passed += check(runner.chooseBotCard(h) == 1, "bot normal before wild");
 
         ArrayList<String> hDrawTwo = new ArrayList<String>();
         hDrawTwo.add("RS");
         hDrawTwo.add("R+2");
         hDrawTwo.add("R3");
-        runner.upCard = "R9";
-        runner.calledColor = "";
+        runner.state.upCard = "R9";
+        runner.state.calledColor = "";
         passed += check(runner.chooseBotCard(hDrawTwo) == 1, "bot prefers draw two");
 
         ArrayList<String> hSkip = new ArrayList<String>();
         hSkip.add("R3");
         hSkip.add("RS");
-        runner.upCard = "R9";
-        runner.calledColor = "";
+        runner.state.upCard = "R9";
+        runner.state.calledColor = "";
         passed += check(runner.chooseBotCard(hSkip) == 1, "bot prefers skip before number");
 
         ArrayList<String> h2 = new ArrayList<String>();
@@ -82,58 +82,65 @@ public class CharacterizationTests {
         passed += check(codeMove.type.equals(HumanMove.CARD_CODE) && codeMove.index == 1, "parse card code command");
         passed += check(missingMove.type.equals(HumanMove.NOT_FOUND), "parse missing command");
 
-        runner = newRunner();
-        runner.deck.clear();
-        runner.discard.clear();
-        runner.discard.add("R1");
-        passed += check(runner.draw().equals("R1"), "draw reshuffles discard");
-        passed += check(runner.discard.size() == 0, "discard empty after reshuffle");
+        GameState gameState = newState();
+        DrawPile drawPile = new DrawPile(gameState.deck, gameState.discard, new Random(1));
+        gameState.deck.clear();
+        gameState.discard.clear();
+        gameState.discard.add("R1");
+        passed += check(drawPile.draw().equals("R1"), "draw reshuffles discard");
+        passed += check(gameState.discard.size() == 0, "discard empty after reshuffle");
 
-        runner.deck.clear();
-        runner.discard.clear();
-        passed += check(runner.draw().equals("W"), "draw fallback wild");
+        gameState.deck.clear();
+        gameState.discard.clear();
+        passed += check(drawPile.draw().equals("W"), "draw fallback wild");
 
-        runner = newRunner();
-        runner.currentPlayer = 0;
-        runner.direction = 1;
-        runner.next();
-        passed += check(runner.currentPlayer == 1, "next clockwise");
-        runner.currentPlayer = 0;
-        runner.direction = -1;
-        runner.next();
-        passed += check(runner.currentPlayer == 2, "next wraps counterclockwise");
+        gameState = newState();
+        gameState.currentPlayer = 0;
+        gameState.direction = 1;
+        gameState.next();
+        passed += check(gameState.currentPlayer == 1, "next clockwise");
+        gameState.currentPlayer = 0;
+        gameState.direction = -1;
+        gameState.next();
+        passed += check(gameState.currentPlayer == 2, "next wraps counterclockwise");
 
-        runner.currentPlayer = 0;
-        runner.direction = 1;
-        runner.applyCardEffect("RS");
-        passed += check(runner.currentPlayer == 2, "skip advances past next player");
+        CardEffectEngine effectEngine = new CardEffectEngine();
+        ConsoleView quietView = new ConsoleView(true);
+        gameState = newState();
+        drawPile = new DrawPile(gameState.deck, gameState.discard, new Random(1));
+        gameState.currentPlayer = 0;
+        gameState.direction = 1;
+        effectEngine.apply("RS", gameState, drawPile, quietView);
+        passed += check(gameState.currentPlayer == 2, "skip advances past next player");
 
-        runner.currentPlayer = 0;
-        runner.direction = 1;
-        runner.applyCardEffect("RR");
-        passed += check(runner.direction == -1 && runner.currentPlayer == 2, "reverse flips direction");
+        gameState.currentPlayer = 0;
+        gameState.direction = 1;
+        effectEngine.apply("RR", gameState, drawPile, quietView);
+        passed += check(gameState.direction == -1 && gameState.currentPlayer == 2, "reverse flips direction");
 
-        runner = newRunner();
-        runner.deck.clear();
-        runner.discard.clear();
-        runner.deck.add("R1");
-        runner.deck.add("R2");
-        runner.currentPlayer = 0;
-        runner.direction = 1;
-        runner.applyCardEffect("R+2");
-        passed += check(runner.players.get(1).hand.size() == 2 && runner.currentPlayer == 2, "draw two hits next player");
+        gameState = newState();
+        drawPile = new DrawPile(gameState.deck, gameState.discard, new Random(1));
+        gameState.deck.clear();
+        gameState.discard.clear();
+        gameState.deck.add("R1");
+        gameState.deck.add("R2");
+        gameState.currentPlayer = 0;
+        gameState.direction = 1;
+        effectEngine.apply("R+2", gameState, drawPile, quietView);
+        passed += check(gameState.players.get(1).hand.size() == 2 && gameState.currentPlayer == 2, "draw two hits next player");
 
-        runner = newRunner();
-        runner.deck.clear();
-        runner.discard.clear();
-        runner.deck.add("R1");
-        runner.deck.add("R2");
-        runner.deck.add("R3");
-        runner.deck.add("R4");
-        runner.currentPlayer = 0;
-        runner.direction = 1;
-        runner.applyCardEffect("W4");
-        passed += check(runner.players.get(1).hand.size() == 4 && runner.currentPlayer == 2, "wild draw four hits next player");
+        gameState = newState();
+        drawPile = new DrawPile(gameState.deck, gameState.discard, new Random(1));
+        gameState.deck.clear();
+        gameState.discard.clear();
+        gameState.deck.add("R1");
+        gameState.deck.add("R2");
+        gameState.deck.add("R3");
+        gameState.deck.add("R4");
+        gameState.currentPlayer = 0;
+        gameState.direction = 1;
+        effectEngine.apply("W4", gameState, drawPile, quietView);
+        passed += check(gameState.players.get(1).hand.size() == 4 && gameState.currentPlayer == 2, "wild draw four hits next player");
 
         System.out.println("Passed " + passed + " characterization checks.");
     }
@@ -148,6 +155,14 @@ public class CharacterizationTests {
 
     private static void fail(String name) {
         throw new RuntimeException("Failed: " + name);
+    }
+
+    private static GameState newState() {
+        ArrayList<Player> players = new ArrayList<Player>();
+        players.add(new Player("A", false));
+        players.add(new Player("B", false));
+        players.add(new Player("C", false));
+        return new GameState(players);
     }
 
     private static GameRunner newRunner() {
