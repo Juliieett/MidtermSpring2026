@@ -1,3 +1,4 @@
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -18,7 +19,7 @@ public class GameRunner {
         this.view = view;
     }
 
-    void playGame() {
+    RoundResult playGame() {
         state.deck.clear();
         state.deck.addAll(DeckFactory.createShuffledDeck(random));
         state.discard.clear();
@@ -111,7 +112,7 @@ public class GameRunner {
                     int points = ScoreCalculator.scoreRemainingPlayers(state.players, state.currentPlayer);
                     player.score += points;
                     view.showWin(name, points);
-                    return;
+                    return new RoundResult(name, points, Instant.now());
                 }
 
                 effects.apply(card, state, pile, view);
@@ -120,6 +121,7 @@ public class GameRunner {
             }
         }
         view.showSafetyLimit();
+        return new RoundResult(null, 0, Instant.now());
     }
 
     int chooseBotCard(ArrayList<String> hand) {
