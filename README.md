@@ -136,6 +136,28 @@ The game uses `java.util.logging` for important events:
 
 Logs go to stderr and do not replace normal CLI output for players.
 
+## Persistence (Assignment 5)
+
+Game sessions are persisted with **H2 + JPA (Hibernate)** after each run.
+
+Database defaults:
+
+- URL: `jdbc:h2:file:./data/uno`
+- User: `sa`
+- Password: empty
+
+Override with environment variables: `UNO_DB_URL`, `UNO_DB_USER`, `UNO_DB_PASSWORD`.
+
+View stored history and statistics:
+
+```bash
+java -jar target/uno-cli.jar --recent-games
+java -jar target/uno-cli.jar --player-wins
+java -jar target/uno-cli.jar --high-scores
+```
+
+See `docs/database.md` for schema, persistence tests, and full documentation.
+
 ## Project Layout
 
 ```text
@@ -160,3 +182,4 @@ See `docs/rules.html` for the implemented game rules.
 - `docs/refactoring-guide.md`: suggested refactoring path
 - `docs/refactoring-report.md`: refactoring report
 - `docs/extension-readiness.md`: extension readiness note
+- `docs/database.md`: persistence schema and database commands
