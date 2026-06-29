@@ -6,6 +6,9 @@ public class HumanMoveParser {
         if (normalized.equals("DRAW")) {
             return HumanMove.draw();
         }
+        if (normalized.equals("UNO")) {
+            return HumanMove.uno();
+        }
         try {
             int index = Integer.parseInt(normalized);
             if (index >= 0 && index < hand.size()) {
@@ -27,6 +30,7 @@ class HumanMove {
     static final String INDEX = "INDEX";
     static final String CARD_CODE = "CARD_CODE";
     static final String NOT_FOUND = "NOT_FOUND";
+    static final String UNO = "UNO";
 
     final String type;
     final int index;
@@ -50,5 +54,9 @@ class HumanMove {
 
     static HumanMove notFound() {
         return new HumanMove(NOT_FOUND, -1);
+    }
+
+    static HumanMove uno() {
+        return new HumanMove(UNO, -1);
     }
 }

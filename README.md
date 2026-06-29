@@ -53,10 +53,16 @@ java -jar target/uno-cli.jar --self-test
 
 ## Local Run
 
-Package and run bot games:
+Package and run bot games to a target score:
 
 ```bash
 mvn -q -DskipTests package
+java -jar target/uno-cli.jar --bots 3 --target 500 --quiet --seed 1
+```
+
+Or play a fixed number of rounds:
+
+```bash
 java -jar target/uno-cli.jar --bots 3 --games 5 --quiet --seed 1
 ```
 
@@ -82,6 +88,18 @@ G+2  green draw two
 W    wild
 W4   wild draw four
 draw draw a card
+uno  call UNO when down to one card
+```
+
+## Final Project
+
+- `docs/rules-supported.md`: implemented rules and simplifications
+- `docs/final-report.md`: architecture, tests, and limitations
+
+Play to 500 points:
+
+```bash
+java -jar target/uno-cli.jar --bots 3 --target 500 --quiet --seed 1
 ```
 
 ## Package Creation

@@ -25,6 +25,8 @@ public class GameRunner {
         state.discard.clear();
         for (int i = 0; i < state.players.size(); i++) {
             state.players.get(i).hand.clear();
+            state.players.get(i).pendingUnoCall = false;
+            state.players.get(i).calledUno = false;
         }
         for (int i = 0; i < state.players.size(); i++) {
             for (int j = 0; j < 7; j++) {
@@ -43,6 +45,7 @@ public class GameRunner {
         int guard = 0;
         while (guard < 3000) {
             guard++;
+            UnoRules.applyPendingPenalties(state.players, pile, view);
             Player player = state.current();
             String name = player.name;
             ArrayList<String> hand = player.hand;
@@ -51,7 +54,7 @@ public class GameRunner {
 
             int chosen = -1;
             if (player.human) {
-                chosen = input.askHumanMove(hand, state.upCard, state.calledColor);
+                chosen = input.askHumanMove(player, hand, state.upCard, state.calledColor);
             } else {
                 chosen = chooseBotCard(hand);
             }
@@ -105,7 +108,7 @@ public class GameRunner {
                 }
 
                 if (hand.size() == 1) {
-                    view.showUno(name);
+                    handleOneCardLeft(player);
                 }
 
                 if (hand.size() == 0) {
@@ -122,6 +125,19 @@ public class GameRunner {
         }
         view.showSafetyLimit();
         return new RoundResult(null, 0, Instant.now());
+    }
+
+    void handleOneCardLeft(Player player) {
+        UnoRules.markPendingUnoCall(player);
+        if (player.human) {
+            if (input.askCallUno()) {
+                UnoRules.resolveUnoCall(player);
+                view.showUno(player.name);
+            }
+        } else {
+            UnoRules.resolveUnoCall(player);
+            view.showUno(player.name);
+        }
     }
 
     int chooseBotCard(ArrayList<String> hand) {

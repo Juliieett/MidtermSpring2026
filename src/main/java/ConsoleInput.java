@@ -10,10 +10,19 @@ public class ConsoleInput {
         this.view = view;
     }
 
-    int askHumanMove(ArrayList<String> hand, String upCard, String calledColor) {
+    int askHumanMove(Player player, ArrayList<String> hand, String upCard, String calledColor) {
         while (true) {
             view.promptChooseCard();
             HumanMove move = HumanMoveParser.parse(scanner.nextLine(), hand);
+            if (move.type.equals(HumanMove.UNO)) {
+                if (player.hand.size() == 1 && player.pendingUnoCall) {
+                    UnoRules.resolveUnoCall(player);
+                    view.showUno(player.name);
+                } else {
+                    view.showUnoCallAcknowledged();
+                }
+                continue;
+            }
             if (move.type.equals(HumanMove.DRAW)) {
                 return -1;
             }
@@ -35,6 +44,12 @@ public class ConsoleInput {
         view.promptPlayDrawnCard(card);
         String answer = scanner.nextLine();
         return answer.equalsIgnoreCase("y") || answer.equalsIgnoreCase("yes");
+    }
+
+    boolean askCallUno() {
+        view.promptCallUno();
+        String answer = scanner.nextLine().trim().toUpperCase();
+        return answer.equals("UNO") || answer.equals("Y") || answer.equals("YES");
     }
 
     String askColor() {

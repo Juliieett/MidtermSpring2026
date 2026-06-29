@@ -62,6 +62,33 @@ public class ConsoleView {
         }
     }
 
+    void showUnoCallAcknowledged() {
+        if (!quiet) {
+            System.out.println("UNO call noted.");
+        }
+    }
+
+    void showMissedUnoPenalty(String playerName) {
+        GameLogger.invalidInput(playerName, "missed uno call");
+        if (!quiet) {
+            System.out.println(playerName + " missed UNO and draws two penalty cards.");
+        }
+    }
+
+    void showRoundScores(ArrayList<Player> players) {
+        if (!quiet) {
+            System.out.println("Round scores:");
+            for (int i = 0; i < players.size(); i++) {
+                System.out.println("  " + players.get(i).name + ": " + players.get(i).score);
+            }
+        }
+    }
+
+    void showChampion(String playerName, int targetScore) {
+        GameLogger.gameEnd("target reached by " + playerName);
+        System.out.println("\n" + playerName + " wins the match with " + targetScore + "+ points!");
+    }
+
     void showWin(String playerName, int points) {
         GameLogger.roundEnd(playerName, points);
         if (!quiet) {
@@ -98,7 +125,7 @@ public class ConsoleView {
     }
 
     void promptChooseCard() {
-        System.out.print("Choose card index/code or draw: ");
+        System.out.print("Choose card index/code, draw, or uno: ");
     }
 
     void showCardNotLegal() {
@@ -113,6 +140,10 @@ public class ConsoleView {
 
     void promptPlayDrawnCard(String card) {
         System.out.print("Play drawn card " + card + "? y/n: ");
+    }
+
+    void promptCallUno() {
+        System.out.print("Call UNO now? type uno or y: ");
     }
 
     void promptColor() {

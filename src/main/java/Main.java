@@ -24,6 +24,7 @@ public class Main {
     public static void main(String[] args) {
         int bots = 3;
         int games = 1;
+        int targetScore = 0;
         boolean human = false;
         boolean quiet = false;
         long seed = System.currentTimeMillis();
@@ -43,6 +44,10 @@ public class Main {
                 quiet = true;
             } else if (args[i].equals("--seed") && i + 1 < args.length) {
                 seed = Long.parseLong(args[++i]);
+            } else if (args[i].equals("--target") && i + 1 < args.length) {
+                targetScore = Integer.parseInt(args[++i]);
+            } else if (args[i].equals("--target")) {
+                targetScore = 500;
             } else if (args[i].equals("--recent-games")) {
                 recentGames = true;
             } else if (args[i].equals("--player-wins")) {
@@ -75,13 +80,25 @@ public class Main {
             return;
         }
 
-        GameLogger.sessionStart(players.size(), games, seed);
+        GameLogger.sessionStart(players.size(), targetScore > 0 ? targetScore : games, seed);
         Instant sessionStart = Instant.now();
         GameRunner gameRunner = new GameRunner(players, random, input, view);
         ArrayList<RoundResult> roundResults = new ArrayList<RoundResult>();
-        for (int g = 1; g <= games; g++) {
-            view.showGameNumber(g);
-            roundResults.add(gameRunner.playGame());
+
+        if (targetScore > 0) {
+            int roundNumber = 1;
+            while (UnoRules.findChampion(players, targetScore) == null) {
+                view.showGameNumber(roundNumber);
+                roundResults.add(gameRunner.playGame());
+                view.showRoundScores(players);
+                roundNumber++;
+            }
+            view.showChampion(UnoRules.findChampion(players, targetScore), targetScore);
+        } else {
+            for (int g = 1; g <= games; g++) {
+                view.showGameNumber(g);
+                roundResults.add(gameRunner.playGame());
+            }
         }
 
         view.showFinalScores(players);
@@ -131,6 +148,7 @@ public class Main {
         System.out.println("Usage: java -jar uno-cli.jar [options]");
         System.out.println("  --bots N            number of bot players");
         System.out.println("  --games N           number of rounds to play");
+        System.out.println("  --target N          play rounds until a player reaches N points (default 500)");
         System.out.println("  --human             include a human player");
         System.out.println("  --quiet             reduce console output");
         System.out.println("  --seed N            random seed");

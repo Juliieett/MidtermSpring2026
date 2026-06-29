@@ -3,6 +3,10 @@ import java.util.Collections;
 import java.util.Random;
 
 public class DeckFactory {
+    static int deckSize() {
+        return createShuffledDeck(new Random(1)).size();
+    }
+
     static ArrayList<String> createShuffledDeck(Random random) {
         ArrayList<String> deck = new ArrayList<String>();
         String[] colors = {"R", "Y", "G", "B"};

@@ -6,3 +6,9 @@ data/
 .classpath
 .project
 .settings/
+
+# Local assignment reference (not part of submission)
+Final_Project.md
+Final_Project_UNO_rules_reference.md
+Final_rubric.md
+*.docx
